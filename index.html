@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recipe to AnyList</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="theme-color" content="#ffffff" />
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.1/dist/tesseract.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 20px; max-width: 700px; }
+    input[type="file"], button, textarea, input[type="text"] {
+      width: 100%; margin-top: 10px; padding: 10px; font-size: 1rem;
+    }
+    textarea { height: 150px; }
+    #loading { display: none; color: green; font-weight: bold; }
+    .instructions { background: #f1f1f1; padding: 15px; margin-top: 20px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Recipe to AnyList</h1>
+
+  <label for="title">Recipe Title:</label>
+  <input type="text" id="title" placeholder="e.g. Chicken Alfredo" />
+
+  <label for="imageInput">Upload Recipe Image:</label>
+  <input type="file" id="imageInput" accept="image/*" />
+
+  <p id="loading">Processing image...</p>
+
+  <label for="ingredientOutput">Ingredients:</label>
+  <textarea id="ingredientOutput" placeholder="Ingredients will appear here..."></textarea>
+  <button id="copyBtn">Copy Ingredients to Clipboard</button>
+
+  <label for="directions">Directions:</label>
+  <textarea id="directions" placeholder="Type or paste directions here..."></textarea>
+
+  <button id="saveBtn">Save Recipe as .txt</button>
+
+  <div class="instructions">
+    <h3>How to Add Ingredients to AnyList:</h3>
+    <ol>
+      <li>Tap the "Copy" button</li>
+      <li>Open AnyList app or website</li>
+      <li>Create or open a list</li>
+      <li>Tap “+” and paste your ingredients</li>
+    </ol>
+  </div>
+
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const output = document.getElementById('ingredientOutput');
+    const titleInput = document.getElementById('title');
+    const directionsInput = document.getElementById('directions');
+    const loading = document.getElementById('loading');
+    const copyBtn = document.getElementById('copyBtn');
+    const saveBtn = document.getElementById('saveBtn');
+
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files[0];
+      if (!file) return;
+
+      loading.style.display = 'block';
+      output.value = '';
+
+      Tesseract.recognize(file, 'eng').then(result => {
+        const text = result.data.text;
+        const lines = text.split('\n').map(line => line.trim()).filter(line =>
+          /\d/.test(line) || /cup|tsp|tbsp|oz|gram|ml|slice|pinch/i.test(line)
+        );
+        const formatted = lines.map(line => `- ${line}`).join('\n');
+        output.value = formatted;
+        loading.style.display = 'none';
+      }).catch(err => {
+        output.value = 'Error processing image.';
+        loading.style.display = 'none';
+      });
+    });
+
+    copyBtn.addEventListener('click', () => {
+      output.select();
+      document.execCommand('copy');
+      alert('Ingredients copied to clipboard!');
+    });
+
+    saveBtn.addEventListener('click', () => {
+      const title = titleInput.value.trim() || "Untitled Recipe";
+      const ingredients = output.value.trim();
+      const directions = directionsInput.value.trim();
+
+      const recipeText = `Recipe: ${title}\n\nIngredients:\n${ingredients}\n\nDirections:\n${directions}`;
+      const blob = new Blob([recipeText], { type: 'text/plain' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${title.replace(/\s+/g, '_')}.txt`;
+      link.click();
+    });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
+</body>
+</html>
